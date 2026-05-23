@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GIF → MP4</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;700;800&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0d0d0f; --surface: #18181c; --border: #2a2a32;
+    --accent: #c8f135; --accent-dim: rgba(200,241,53,0.12);
+    --text: #e8e8ec; --muted: #6b6b78; --radius: 16px;
+  }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; padding: 24px;
+  }
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background-image: linear-gradient(rgba(200,241,53,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(200,241,53,0.03) 1px, transparent 1px);
+    background-size: 40px 40px; pointer-events: none;
+  }
+  .container { width: 100%; max-width: 560px; position: relative; z-index: 1; }
+  header { margin-bottom: 40px; }
+  .logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 2rem; letter-spacing: -0.02em; display: flex; align-items: center; gap: 10px; }
+  .logo .arrow { color: var(--accent); }
+  .tagline { color: var(--muted); font-size: 0.78rem; margin-top: 6px; letter-spacing: 0.04em; }
+  .dropzone {
+    border: 1.5px dashed var(--border); border-radius: var(--radius);
+    padding: 52px 32px; text-align: center; cursor: pointer;
+    transition: border-color 0.2s; background: var(--surface); position: relative; overflow: hidden;
+  }
+  .dropzone::after { content: ''; position: absolute; inset: 0; background: var(--accent-dim); opacity: 0; transition: opacity 0.2s; pointer-events: none; }
+  .dropzone:hover, .dropzone.dragover { border-color: var(--accent); }
+  .dropzone:hover::after, .dropzone.dragover::after { opacity: 1; }
+  .drop-icon { font-size: 2.4rem; margin-bottom: 16px; display: block; }
+  .drop-main { font-family: 'Syne', sans-serif; font-size: 1.1rem; font-weight: 700; margin-bottom: 6px; }
+  .drop-sub { font-size: 0.75rem; color: var(--muted); }
+  .drop-sub span { color: var(--accent); }
+  input[type="file"] { display: none; }
+  .preview-section { display: none; background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .preview-section.visible { display: block; }
+  .preview-header { padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .file-info { display: flex; align-items: center; gap: 10px; }
+  .file-badge { background: var(--accent-dim); color: var(--accent); font-size: 0.7rem; padding: 3px 8px; border-radius: 6px; letter-spacing: 0.06em; border: 1px solid rgba(200,241,53,0.2); }
+  .file-name { font-size: 0.82rem; color: var(--muted); max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .btn-clear { background: none; border: 1px solid var(--border); color: var(--muted); font-family: 'DM Mono', monospace; font-size: 0.72rem; padding: 5px 12px; border-radius: 8px; cursor: pointer; transition: border-color 0.15s, color 0.15s; }
+  .btn-clear:hover { border-color: #ff5555; color: #ff5555; }
+  .preview-body { padding: 20px; display: flex; justify-content: center; background: #111115; min-height: 160px; align-items: center; }
+  .preview-body img { max-width: 100%; max-height: 280px; border-radius: 8px; display: block; }
+  .settings { background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius); padding: 20px; }
+  .settings-title { font-size: 0.7rem; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 16px; }
+  .setting-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .setting-row:last-child { border-bottom: none; }
+  .setting-label { font-size: 0.8rem; color: var(--text); }
+  .setting-label small { display: block; font-size: 0.68rem; color: var(--muted); margin-top: 2px; }
+  select { background: var(--bg); border: 1px solid var(--border); color: var(--text); font-family: 'DM Mono', monospace; font-size: 0.78rem; padding: 6px 28px 6px 10px; border-radius: 8px; cursor: pointer; outline: none; transition: border-color 0.15s; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b6b78'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; }
+  select:focus { border-color: var(--accent); }
+  .btn-convert { width: 100%; padding: 16px; background: var(--accent); color: #0d0d0f; border: none; border-radius: var(--radius); font-family: 'Syne', sans-serif; font-size: 1rem; font-weight: 700; cursor: pointer; letter-spacing: 0.02em; transition: transform 0.15s, box-shadow 0.15s; }
+  .btn-convert:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(200,241,53,0.25); }
+  .btn-convert:disabled { opacity: 0.35; cursor: not-allowed; }
+  .progress-wrap { display: none; background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius); padding: 20px 24px; }
+  .progress-wrap.visible { display: block; }
+  .progress-label { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--muted); margin-bottom: 10px; }
+  .progress-label span { color: var(--accent); }
+  .progress-bar-bg { background: var(--border); border-radius: 99px; height: 4px; overflow: hidden; }
+  .progress-bar-fill { height: 100%; background: var(--accent); border-radius: 99px; width: 0%; transition: width 0.25s ease; box-shadow: 0 0 8px var(--accent); }
+  .result-wrap { display: none; background: var(--surface); border: 1.5px solid var(--accent); border-radius: var(--radius); padding: 20px 24px; text-align: center; }
+  .result-wrap.visible { display: block; }
+  .result-icon { font-size: 2rem; margin-bottom: 10px; }
+  .result-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 1rem; margin-bottom: 4px; }
+  .result-sub { font-size: 0.75rem; color: var(--muted); margin-bottom: 18px; }
+  .btn-download { display: inline-flex; align-items: center; gap: 8px; background: var(--accent); color: #0d0d0f; border: none; border-radius: 10px; font-family: 'Syne', sans-serif; font-size: 0.9rem; font-weight: 700; padding: 11px 24px; cursor: pointer; text-decoration: none; transition: transform 0.15s, box-shadow 0.15s; }
+  .btn-download:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(200,241,53,0.3); }
+  .error-msg { display: none; background: rgba(255,85,85,0.08); border: 1px solid rgba(255,85,85,0.3); border-radius: 10px; padding: 12px 16px; font-size: 0.78rem; color: #ff7070; }
+  .error-msg.visible { display: block; }
+  .stack { display: flex; flex-direction: column; gap: 14px; }
+  .note { font-size: 0.68rem; color: var(--muted); text-align: center; line-height: 1.6; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="logo">GIF <span class="arrow">→</span> MP4</div>
+    <div class="tagline">// 在浏览器本地转换，文件不会上传至任何服务器</div>
+  </header>
+  <div class="stack">
+    <div class="dropzone" id="dropzone">
+      <input type="file" id="fileInput" accept=".gif,image/gif">
+      <span class="drop-icon">🎞️</span>
+      <div class="drop-main">拖拽 GIF 到这里</div>
+      <div class="drop-sub">或者 <span>点击选择文件</span> · 仅支持 .gif 格式</div>
+    </div>
+    <div class="preview-section" id="previewSection">
+      <div class="preview-header">
+        <div class="file-info">
+          <span class="file-badge">GIF</span>
+          <span class="file-name" id="fileName">—</span>
+        </div>
+        <button class="btn-clear" id="btnClear">✕ 清除</button>
+      </div>
+      <div class="preview-body"><img id="previewImg" src="" alt="preview"></div>
+    </div>
+    <div class="settings" id="settingsPanel" style="display:none">
+      <div class="settings-title">// 转换设置</div>
+      <div class="setting-row">
+        <div class="setting-label">视频质量<small>影响文件大小与清晰度</small></div>
+        <select id="quality">
+          <option value="high">高质量</option>
+          <option value="medium" selected>标准</option>
+          <option value="low">小文件</option>
+        </select>
+      </div>
+      <div class="setting-row">
+        <div class="setting-label">帧率<small>使用 GIF 原始帧率或自定义</small></div>
+        <select id="fps">
+          <option value="0" selected>跟随 GIF 原始帧率</option>
+          <option value="15">15 fps</option>
+          <option value="24">24 fps</option>
+          <option value="30">30 fps</option>
+        </select>
+      </div>
+    </div>
+    <div class="error-msg" id="errorMsg"></div>
+    <button class="btn-convert" id="btnConvert" disabled>转换为 MP4</button>
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-label">
+        <span id="progressText">正在处理...</span>
+        <span id="progressPct">0%</span>
+      </div>
+      <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressBar"></div></div>
+    </div>
+    <div class="result-wrap" id="resultWrap">
+      <div class="result-icon">✅</div>
+      <div class="result-title">转换完成！</div>
+      <div class="result-sub" id="resultInfo">—</div>
+      <a class="btn-download" id="btnDownload" href="#" download="output.mp4">⬇ 下载视频</a>
+    </div>
+    <div class="note">所有处理均在浏览器本地完成，文件不会上传至任何服务器。<br>建议使用 Chrome 浏览器以获得最佳兼容性。</div>
+  </div>
+</div>
+
+<script>
+// ─── UI refs ───────────────────────────────────────────────────────────────
+const dropzone       = document.getElementById('dropzone');
+const fileInput      = document.getElementById('fileInput');
+const previewSection = document.getElementById('previewSection');
+const previewImg     = document.getElementById('previewImg');
+const fileName       = document.getElementById('fileName');
+const btnClear       = document.getElementById('btnClear');
+const settingsPanel  = document.getElementById('settingsPanel');
+const btnConvert     = document.getElementById('btnConvert');
+const progressWrap   = document.getElementById('progressWrap');
+const progressBar    = document.getElementById('progressBar');
+const progressPct    = document.getElementById('progressPct');
+const progressText   = document.getElementById('progressText');
+const resultWrap     = document.getElementById('resultWrap');
+const resultInfo     = document.getElementById('resultInfo');
+const btnDownload    = document.getElementById('btnDownload');
+const errorMsg       = document.getElementById('errorMsg');
+const qualitySel     = document.getElementById('quality');
+const fpsSel         = document.getElementById('fps');
+
+let currentFile = null;
+
+// ─── Drop / file select ────────────────────────────────────────────────────
+dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+dropzone.addEventListener('drop', e => { e.preventDefault(); dropzone.classList.remove('dragover'); const f = e.dataTransfer.files[0]; if (f) handleFile(f); });
+fileInput.addEventListener('change', () => { if (fileInput.files[0]) handleFile(fileInput.files[0]); });
+btnClear.addEventListener('click', resetAll);
+
+function handleFile(file) {
+  if (!file.type.includes('gif') && !file.name.toLowerCase().endsWith('.gif')) { showError('请选择 GIF 格式的文件。'); return; }
+  hideError(); currentFile = file;
+  previewImg.src = URL.createObjectURL(file);
+  fileName.textContent = file.name + '  (' + fmtSize(file.size) + ')';
+  previewSection.classList.add('visible');
+  settingsPanel.style.display = 'block';
+  btnConvert.disabled = false;
+  resultWrap.classList.remove('visible');
+  progressWrap.classList.remove('visible');
+}
+
+function resetAll() {
+  currentFile = null; fileInput.value = '';
+  previewSection.classList.remove('visible'); settingsPanel.style.display = 'none';
+  btnConvert.disabled = true; progressWrap.classList.remove('visible'); resultWrap.classList.remove('visible'); hideError();
+}
+
+// ─── Convert ───────────────────────────────────────────────────────────────
+btnConvert.addEventListener('click', async () => {
+  if (!currentFile) return;
+  hideError(); resultWrap.classList.remove('visible');
+  progressWrap.classList.add('visible'); btnConvert.disabled = true;
+  setProgress(0, '正在解析 GIF 帧...');
+  try {
+    const frames = await parseGIF(currentFile, p => setProgress(p * 40, '解析中 ' + Math.round(p*100) + '%...'));
+    if (!frames.length) throw new Error('未能解析出任何帧，请确认 GIF 文件完整。');
+    setProgress(40, '共 ' + frames.length + ' 帧，开始编码视频...');
+    const blob = await encodeVideo(frames, p => setProgress(40 + p * 58, '编码中 ' + Math.round(p*100) + '%...'));
+    setProgress(100, '完成！');
+    const ext = blob.type.includes('mp4') ? 'mp4' : 'webm';
+    btnDownload.href = URL.createObjectURL(blob);
+    btnDownload.download = currentFile.name.replace(/\.gif$/i, '') + '.' + ext;
+    const totalMs = frames.reduce((s, f) => s + f.delay, 0);
+    resultInfo.textContent = frames.length + ' 帧 · ' + (1000 / (totalMs / frames.length)).toFixed(1) + ' fps 均值 · ' + fmtSize(blob.size);
+    resultWrap.classList.add('visible');
+  } catch(err) {
+    showError('转换失败：' + err.message); progressWrap.classList.remove('visible');
+  }
+  btnConvert.disabled = false;
+});
+
+// ─── GIF Binary Parser ─────────────────────────────────────────────────────
+// Returns array of { imageData: ImageData, delay: number(ms) }
+async function parseGIF(file, onProgress) {
+  const buf = await file.arrayBuffer();
+  const data = new Uint8Array(buf);
+  let pos = 0;
+
+  function read(n) { const s = data.slice(pos, pos+n); pos += n; return s; }
+  function readU8() { return data[pos++]; }
+  function readU16() { const v = data[pos] | (data[pos+1]<<8); pos+=2; return v; }
+
+  // Header
+  const sig = String.fromCharCode(...read(6));
+  if (!sig.startsWith('GIF')) throw new Error('非法 GIF 文件');
+
+  // Logical Screen Descriptor
+  const canvasW = readU16();
+  const canvasH = readU16();
+  const packed  = readU8();
+  readU8(); // bg color index
+  readU8(); // pixel aspect ratio
+  const hasGCT = (packed >> 7) & 1;
+  const gctSize = hasGCT ? 3 * (1 << ((packed & 0x07) + 1)) : 0;
+
+  // Global Color Table
+  let globalCT = hasGCT ? Array.from(read(gctSize)) : [];
+
+  // Canvas accumulation (for compositing frames with disposal methods)
+  const canvas = document.createElement('canvas');
+  canvas.width = canvasW; canvas.height = canvasH;
+  const ctx = canvas.getContext('2d');
+
+  const frameCanvas = document.createElement('canvas');
+  frameCanvas.width = canvasW; frameCanvas.height = canvasH;
+  const fctx = frameCanvas.getContext('2d');
+
+  const frames = [];
+  let gceDone = false, gceDelay = 100, gceTranspIdx = -1, gceDisposal = 0;
+  let prevSnapshot = null;
+
+  const totalBytes = data.length;
+
+  while (pos < data.length) {
+    const sentinel = readU8();
+    onProgress && onProgress(pos / totalBytes);
+
+    if (sentinel === 0x3B) break; // Trailer
+
+    if (sentinel === 0x21) {
+      // Extension
+      const label = readU8();
+      if (label === 0xF9) {
+        // Graphic Control Extension
+        readU8(); // block size = 4
+        const p2 = readU8();
+        gceDisposal = (p2 >> 3) & 0x07;
+        const hasTransp = p2 & 1;
+        gceDelay = readU16() * 10; // centiseconds → ms
+        if (gceDelay < 20) gceDelay = 100;
+        const tIdx = readU8();
+        gceTranspIdx = hasTransp ? tIdx : -1;
+        readU8(); // block terminator
+        gceDone = true;
+      } else {
+        // Skip other extensions
+        skipSubBlocks();
+      }
+      continue;
+    }
+
+    if (sentinel === 0x2C) {
+      // Image Descriptor
+      const imgLeft   = readU16();
+      const imgTop    = readU16();
+      const imgW      = readU16();
+      const imgH      = readU16();
+      const imgPacked = readU8();
+      const hasLCT    = (imgPacked >> 7) & 1;
+      const isInterlaced = (imgPacked >> 6) & 1;
+      const lctSize   = hasLCT ? 3 * (1 << ((imgPacked & 0x07) + 1)) : 0;
+      const localCT   = hasLCT ? Array.from(read(lctSize)) : null;
+      const colorTable = localCT || globalCT;
+
+      // LZW decode
+      const minCodeSize = readU8();
+      const compressed  = readSubBlocks();
+      const pixels      = lzwDecode(minCodeSize, compressed, imgW * imgH);
+
+      // Disposal: restore canvas state before drawing
+      if (gceDisposal === 2) {
+        // restore to background
+        ctx.clearRect(imgLeft, imgTop, imgW, imgH);
+      } else if (gceDisposal === 3 && prevSnapshot) {
+        // restore to previous
+        ctx.putImageData(prevSnapshot, 0, 0);
+      }
+
+      // Snapshot before drawing (for disposal=3)
+      if (gceDisposal === 3) {
+        prevSnapshot = ctx.getImageData(0, 0, canvasW, canvasH);
+      }
+
+      // Build ImageData for this frame's sub-image
+      const subData = new Uint8ClampedArray(imgW * imgH * 4);
+      const deinterlaced = isInterlaced ? deinterlace(pixels, imgW, imgH) : pixels;
+
+      for (let i = 0; i < deinterlaced.length; i++) {
+        const ci = deinterlaced[i];
+        if (ci === gceTranspIdx) {
+          // transparent: leave canvas pixel as-is (we don't touch subData → it stays 0,0,0,0)
+          subData[i*4+3] = 0;
+        } else {
+          const r = colorTable[ci*3], g = colorTable[ci*3+1], b = colorTable[ci*3+2];
+          subData[i*4]=r; subData[i*4+1]=g; subData[i*4+2]=b; subData[i*4+3]=255;
+        }
+      }
+      const subImgData = new ImageData(subData, imgW, imgH);
+
+      // Blit sub-image onto main canvas
+      fctx.putImageData(subImgData, 0, 0);
+      ctx.drawImage(frameCanvas, 0, 0, imgW, imgH, imgLeft, imgTop, imgW, imgH);
+
+      // Snapshot full composed frame
+      const composed = ctx.getImageData(0, 0, canvasW, canvasH);
+      frames.push({ imageData: composed, delay: gceDone ? gceDelay : 100 });
+
+      // Reset GCE state
+      gceDone = false; gceTranspIdx = -1; gceDisposal = 0;
+      continue;
+    }
+
+    // Unknown byte — skip
+  }
+
+  return frames;
+
+  // ── helpers ──
+  function skipSubBlocks() {
+    while (true) { const sz = readU8(); if (sz === 0) break; pos += sz; }
+  }
+  function readSubBlocks() {
+    const out = []; while (true) { const sz = readU8(); if (sz === 0) break; for (let i=0;i<sz;i++) out.push(data[pos++]); } return out;
+  }
+}
+
+// ─── LZW Decoder ──────────────────────────────────────────────────────────
+function lzwDecode(minCodeSize, compressed, pixelCount) {
+  const clearCode = 1 << minCodeSize;
+  const eodCode   = clearCode + 1;
+  let codeSize    = minCodeSize + 1;
+  let codeMask    = (1 << codeSize) - 1;
+
+  // Build input bit stream
+  let bitBuf = 0, bitCount = 0, bytePos = 0;
+  function nextCode() {
+    while (bitCount < codeSize) { bitBuf |= (compressed[bytePos++] || 0) << bitCount; bitCount += 8; }
+    const code = bitBuf & codeMask; bitBuf >>= codeSize; bitCount -= codeSize; return code;
+  }
+
+  // Initialize table
+  let table = [];
+  function initTable() {
+    table = [];
+    for (let i = 0; i < clearCode; i++) table[i] = [i];
+    table[clearCode] = []; table[eodCode] = [];
+    codeSize = minCodeSize + 1; codeMask = (1 << codeSize) - 1;
+  }
+
+  initTable();
+  const output = new Uint8Array(pixelCount);
+  let outPos = 0;
+  let prevCode = -1;
+
+  while (bytePos <= compressed.length) {
+    const code = nextCode();
+    if (code === eodCode) break;
+    if (code === clearCode) { initTable(); prevCode = -1; continue; }
+
+    let entry;
+    if (code < table.length) {
+      entry = table[code];
+    } else if (code === table.length && prevCode >= 0) {
+      entry = table[prevCode].concat(table[prevCode][0]);
+    } else break;
+
+    for (let i = 0; i < entry.length && outPos < pixelCount; i++) output[outPos++] = entry[i];
+
+    if (prevCode >= 0) {
+      const newEntry = table[prevCode].concat(entry[0]);
+      table.push(newEntry);
+      if (table.length === (1 << codeSize) && codeSize < 12) { codeSize++; codeMask = (1 << codeSize) - 1; }
+    }
+    prevCode = code;
+  }
+  return output;
+}
+
+// ─── Deinterlace ──────────────────────────────────────────────────────────
+function deinterlace(pixels, w, h) {
+  const out = new Uint8Array(w * h);
+  const passes = [[0,8],[4,8],[2,4],[1,2]];
+  let srcRow = 0;
+  for (const [start, step] of passes) {
+    for (let y = start; y < h; y += step) {
+      out.set(pixels.slice(srcRow*w, (srcRow+1)*w), y*w);
+      srcRow++;
+    }
+  }
+  return out;
+}
+
+// ─── Video encoder (MediaRecorder) ────────────────────────────────────────
+function encodeVideo(frames, onProgress) {
+  return new Promise((resolve, reject) => {
+    const w = frames[0].imageData.width;
+    const h = frames[0].imageData.height;
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext('2d');
+
+    const mimes = ['video/mp4;codecs=avc1','video/mp4','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
+    const mime  = mimes.find(m => { try { return MediaRecorder.isTypeSupported(m); } catch(e){ return false; }}) || 'video/webm';
+    const bps   = { high: 8000000, medium: 4000000, low: 1500000 }[qualitySel.value] || 4000000;
+
+    // Use the user-selected fps, or derive from original delays
+    const selectedFps = parseInt(fpsSel.value);
+
+    const stream   = canvas.captureStream(60);
+    const recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: bps });
+    const chunks   = [];
+    recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+    recorder.onstop = () => resolve(new Blob(chunks, { type: mime }));
+    recorder.onerror = reject;
+    recorder.start();
+
+    let i = 0;
+    function nextFrame() {
+      if (i >= frames.length) { recorder.stop(); return; }
+      const f = frames[i];
+      ctx.putImageData(f.imageData, 0, 0);
+      onProgress((i + 1) / frames.length);
+      i++;
+      // delay matches each frame's own GIF delay (or 1000/fps if custom)
+      const delay = selectedFps > 0 ? (1000 / selectedFps) : f.delay;
+      setTimeout(nextFrame, delay);
+    }
+    nextFrame();
+  });
+}
+
+// ─── UI helpers ───────────────────────────────────────────────────────────
+function setProgress(pct, text) { progressBar.style.width = pct + '%'; progressPct.textContent = Math.round(pct) + '%'; progressText.textContent = text; }
+function showError(msg) { errorMsg.textContent = msg; errorMsg.classList.add('visible'); }
+function hideError() { errorMsg.classList.remove('visible'); }
+function fmtSize(b) { if (b < 1024) return b + ' B'; if (b < 1048576) return (b/1024).toFixed(1) + ' KB'; return (b/1048576).toFixed(2) + ' MB'; }
+</script>
+</body>
+</html>
